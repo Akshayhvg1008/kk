@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: config-syncer
+  namespace: operations
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: operations
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://charts.appscode.com/stable/
+    chart: kubed
+    # https://github.com/kubeops/config-syncer/releases
+    targetRevision: v0.13.2
+    helm:
+      # https://github.com/kubeops/config-syncer/blob/HEAD/charts/kubed/values.yaml
+      parameters:
+      - name: criticalAddon
+        value: "true"
+      - name: enableAnalytics
+        value: "false"
+      - name: logLevel
+        value: "1"
+{{- if $.Values.automatedSync.enabled }}
+  syncPolicy:
+    automated:
+      prune: {{ $.Values.automatedSync.prune }}
+      selfHeal: {{ $.Values.automatedSync.selfHeal }}
+{{- else }}
+  syncPolicy: {}
+{{- end }}

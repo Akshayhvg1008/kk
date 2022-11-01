@@ -1,0 +1,54 @@
+{{- with $.Values.certManager }}
+{{- if .enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: {{ $.Values.namespace }}
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    # https://artifacthub.io/packages/helm/cert-manager/cert-manager?modal=changelog
+    targetRevision: v1.8.2
+    helm:
+      # https://artifacthub.io/packages/helm/cert-manager/cert-manager?modal=values
+      parameters:
+      - name: installCRDs
+        value: "true"
+      {{- if and .defaultClusterIssuer.enabled .defaultClusterIssuer.spec }}
+      - name: ingressShim.defaultIssuerName
+        value: default
+      - name: ingressShim.defaultIssuerKind
+        value: ClusterIssuer
+      - name: ingressShim.defaultIssuerGroup
+        value: cert-manager.io
+      {{- end }}
+{{- if .values }}
+  {{- if kindIs "string" .values }}
+    {{- with (tpl .values $) }}
+      {{- if trim . }}
+      values: |
+        {{- . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+  {{- else }}
+      values: |
+        {{- tpl (toYaml .values) $ | nindent 8 }}
+  {{- end }}
+{{- end }}
+{{- if $.Values.automatedSync.enabled }}
+  syncPolicy:
+    automated:
+      prune: {{ $.Values.automatedSync.prune }}
+      selfHeal: {{ $.Values.automatedSync.selfHeal }}
+{{- else }}
+  syncPolicy: {}
+{{- end }}
+{{- end }}
+{{- end }}

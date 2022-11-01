@@ -1,0 +1,50 @@
+# === General ===
+
+namespace: dummy
+
+baseDomainName: test.dummy.local
+
+
+# === Components ===
+
+# https://cert-manager.io/docs/
+certManager:
+  defaultClusterIssuer:
+    enabled: true
+    spec:
+      acme:
+        server: https://acme-v02.api.letsencrypt.org/directory
+        privateKeySecretRef:
+          name: digitalocean-cluster-issuer-account-key
+        solvers:
+        - selector:
+            dnsNames:
+            - "*.{{ $.Values.baseDomainName }}"
+            - "{{ $.Values.baseDomainName }}"
+          dns01:
+            # https://cert-manager.io/docs/configuration/acme/dns01/digitalocean/
+            digitalocean:
+              tokenSecretRef:
+                name: digitalocean-api-credentials
+                key: access-token
+  # https://artifacthub.io/packages/helm/cert-manager/cert-manager?modal=values
+  values: {}
+
+# https://kubernetes-sigs.github.io/external-dns/
+externalDns:
+  providers:
+  - name: digitalocean
+    # https://artifacthub.io/packages/helm/external-dns/external-dns?modal=values
+    values: |
+      {{- if $.Values.baseDomainName -}}
+      # https://kubernetes-sigs.github.io/external-dns/v0.12.0/tutorials/digitalocean/
+      provider: digitalocean
+      domainFilters:
+      - {{ slice ($.Values.baseDomainName | splitList "." | reverse) 0 2 | reverse | join "." }}
+      env:
+      - name: DO_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: digitalocean-api-credentials
+            key: access-token
+      {{- end }}

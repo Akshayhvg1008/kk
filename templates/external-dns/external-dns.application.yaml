@@ -1,0 +1,54 @@
+# We're using multiple instances of External DNS because multiple providers are not yet supported: https://github.com/kubernetes-sigs/external-dns/issues/1961
+{{- if $.Values.externalDns.enabled }}
+{{- range $.Values.externalDns.providers }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ printf "external-dns-%s" .name }}
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: {{ $.Values.namespace }}
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    chart: external-dns
+    # https://artifacthub.io/packages/helm/external-dns/external-dns?modal=changelog
+    targetRevision: 1.9.0
+    helm:
+      # https://artifacthub.io/packages/helm/external-dns/external-dns?modal=values
+      parameters:
+      - name: extraArgs[0]
+        value: "--ignore-ingress-tls-spec"
+      - name: interval
+        value: 10m
+      - name: policy
+        value: sync
+      - name: triggerLoopOnEvent
+        value: "true"
+{{- if .values }}
+  {{- if kindIs "string" .values }}
+    {{- with (tpl .values $) }}
+      {{- if trim . }}
+      values: |
+        {{- . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+  {{- else }}
+      values: |
+        {{- tpl (toYaml .values) $ | nindent 8 }}
+  {{- end }}
+{{- end }}
+{{- if $.Values.automatedSync.enabled }}
+  syncPolicy:
+    automated:
+      prune: {{ $.Values.automatedSync.prune }}
+      selfHeal: {{ $.Values.automatedSync.selfHeal }}
+{{- else }}
+  syncPolicy: {}
+{{- end }}
+---
+{{- end }}
+{{- end }}

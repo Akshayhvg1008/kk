@@ -1,0 +1,59 @@
+{{- with $.Values.ingressNginx }}
+{{- if .enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress-nginx
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: {{ $.Values.namespace }}
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    chart: ingress-nginx
+    # https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx?modal=changelog
+    targetRevision: 4.1.4
+    helm:
+      # https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx?modal=values
+      parameters:
+      - name: controller.watchIngressWithoutClass
+        value: "true"
+      - name: controller.config.server-tokens
+        value: "false"
+      - name: controller.config.enable-modsecurity
+        value: "true"
+      - name: controller.config.enable-owasp-modsecurity-crs
+        value: "true"
+      - name: controller.config.modsecurity-snippet
+        value: |
+          SecAuditLog /dev/stdout
+          SecAuditLogStorageDir /dev/stdout
+          SecAuditLogFormat JSON
+      - name: controller.service.externalTrafficPolicy
+        value: Local
+{{- if .values }}
+  {{- if kindIs "string" .values }}
+    {{- with (tpl .values $) }}
+      {{- if trim . }}
+      values: |
+        {{- . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+  {{- else }}
+      values: |
+        {{- tpl (toYaml .values) $ | nindent 8 }}
+  {{- end }}
+{{- end }}
+{{- if $.Values.automatedSync.enabled }}
+  syncPolicy:
+    automated:
+      prune: {{ $.Values.automatedSync.prune }}
+      selfHeal: {{ $.Values.automatedSync.selfHeal }}
+{{- else }}
+  syncPolicy: {}
+{{- end }}
+{{- end }}
+{{- end }}

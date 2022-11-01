@@ -1,0 +1,4 @@
+/charts/**/*.tgz
+
+# CI cache assets
+/bin/

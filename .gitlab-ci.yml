@@ -1,0 +1,31 @@
+workflow:
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /(^|,)disable\spipelines(,|$)/'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_PIPELINE_SOURCE != "push"'
+
+stages:
+  - test
+
+chart test:
+  stage: test
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+  cache:
+    paths:
+      - bin/
+  image: docker.io/library/alpine:3.16
+  before_script:
+    - |
+      HELM_CHECKSUM=111c4aa64532946feb11a1542e96af730f9748483ee56a06e6b67609ee8cfec3
+      if [ ! -f bin/helm ] || ( ! echo "${HELM_CHECKSUM}  bin/helm" | sha256sum -c );then
+        mkdir -p bin
+        wget -O /dev/stdout https://get.helm.sh/helm-v3.9.0-linux-amd64.tar.gz | tar -xz -C bin --strip-components=1 linux-amd64/helm
+        sha256sum bin/helm
+        echo "${HELM_CHECKSUM}  bin/helm" | sha256sum -c
+      fi
+  script:
+    - bin/helm lint . --values=values.test.yaml --strict
+    - bin/helm template . --values=values.test.yaml --debug

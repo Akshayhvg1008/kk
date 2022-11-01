@@ -1,0 +1,78 @@
+# === WARING ==================================================================
+#
+#   This file is imported and installed using the Helm CLI from https://gitlab.com/vlasman/terraform-argo-cd.
+#   Make sure it remains compatible. Edit the contents, BUT DON'T RENAME IT.
+#
+# === WARING ==================================================================
+
+{{- with $.Values.argoCd }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-cd
+  # Not adding a finalizer because then Argo CD could delete itself
+spec:
+  project: default
+  destination:
+    namespace: {{ $.Values.namespace | required "Missing value 'namespace'" }}
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-cd
+    # https://artifacthub.io/packages/helm/argo/argo-cd?modal=changelog
+    targetRevision: 4.8.3
+    helm:
+      releaseName: argocd
+      # https://artifacthub.io/packages/helm/argo/argo-cd?modal=values
+      parameters:
+      - name: configs.secret.createSecret
+        value: "false"
+      - name: applicationSet.enabled
+        value: "false"
+      - name: notifications.enabled
+        value: "false"
+      - name: dex.enabled
+        value: "false"
+      - name: server.extraArgs[0]
+        value: "--insecure"
+      {{- if and .server.ingress.enabled (or .server.hostname $.Values.baseDomainName) }}
+      - name: server.config.url
+        value: {{ printf "https://%s" (.server.hostname | default (printf "argocd.%s" $.Values.baseDomainName)) }}
+      - name: server.ingress.enabled
+        value: "true"
+      - name: server.ingress.hosts[0]
+        value: {{ .server.hostname | default (printf "argocd.%s" $.Values.baseDomainName) }}
+      - name: server.ingress.tls[0].secretName
+        value: argo-cd-tls-cert
+      {{- if and .server.ingress.tlsAcmeEnabled $.Values.certManager.enabled }}
+      - name: server.ingress.annotations.kubernetes\.io/tls-acme
+        value: "true"
+      {{- end }}
+      {{- else }}
+      - name: server.config.url
+        value: "http://localhost:8080"
+      {{- end }}
+{{- if .values }}
+  {{- if kindIs "string" .values }}
+    {{- with (tpl .values $) }}
+      {{- if trim . }}
+      values: |
+        {{- . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+  {{- else }}
+      values: |
+        {{- tpl (toYaml .values) $ | nindent 8 }}
+  {{- end }}
+{{- end }}
+  syncPolicy:
+{{- if $.Values.automatedSync.enabled }}
+    automated:
+      prune: {{ $.Values.automatedSync.prune }}
+      selfHeal: {{ $.Values.automatedSync.selfHeal }}
+{{- else }}
+    automated: {}
+{{- end }}
+    syncOptions:
+    - PruneLast=true
+{{- end }}

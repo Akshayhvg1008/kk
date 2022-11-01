@@ -1,0 +1,46 @@
+# === General ===
+
+namespace: ""
+
+baseDomainName: ""
+
+automatedSync:
+  enabled: true
+  prune: true
+  selfHeal: false
+
+
+# === Components ===
+
+# https://argo-cd.readthedocs.io/en/stable/
+argoCd:
+  server:
+    hostname: "" # Defaults to 'argocd.<baseDomainName>'
+    ingress:
+      enabled: true
+      tlsAcmeEnabled: true
+  # https://artifacthub.io/packages/helm/argo/argo-cd?modal=values
+  values: {}
+
+# https://cert-manager.io/docs/
+certManager:
+  enabled: true
+  defaultClusterIssuer:
+    enabled: true
+    spec: {}
+  # https://artifacthub.io/packages/helm/cert-manager/cert-manager?modal=values
+  values: {}
+
+# https://kubernetes-sigs.github.io/external-dns/
+externalDns:
+  enabled: true
+  providers: []
+  # - name: <name>
+  #   # https://artifacthub.io/packages/helm/external-dns/external-dns?modal=values
+  #   values: {}
+
+# https://kubernetes.github.io/ingress-nginx/
+ingressNginx:
+  enabled: true
+  # https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx?modal=values
+  values: {}

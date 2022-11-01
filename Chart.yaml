@@ -1,0 +1,5 @@
+apiVersion: v2
+name: root-app
+description: The App of Apps for Argo CD
+type: application
+version: 0.0.0
